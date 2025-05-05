@@ -1,0 +1,1331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SpaceBar Clicker | The Ultimate Clicking Game</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#5D5CDE',
+                        secondary: '#4F46E5',
+                        accent: '#7C3AED',
+                        success: '#10B981',
+                        warning: '#F59E0B',
+                        danger: '#EF4444',
+                    },
+                    animation: {
+                        'pulse-fast': 'pulse 0.5s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'bounce-subtle': 'bounce-subtle 0.5s ease-in-out',
+                    },
+                    keyframes: {
+                        'bounce-subtle': {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-6px)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Base styles */
+        .click-area {
+            transition: transform 0.06s ease-out;
+        }
+        .click-area:active {
+            transform: scale(0.98);
+        }
+        .particle {
+            position: absolute;
+            pointer-events: none;
+            animation: float-up 1s ease-out forwards;
+            opacity: 0.8;
+        }
+        @keyframes float-up {
+            0% {
+                transform: translateY(0) scale(1);
+                opacity: 0.8;
+            }
+            100% {
+                transform: translateY(-100px) scale(0);
+                opacity: 0;
+            }
+        }
+        .upgrade-item {
+            transition: all 0.2s ease;
+        }
+        .upgrade-item:hover:not(.disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+        .disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+        .tooltip {
+            visibility: hidden;
+            position: absolute;
+            z-index: 100;
+        }
+        .has-tooltip:hover .tooltip {
+            visibility: visible;
+        }
+        .bounce-in {
+            animation: bounce-in 0.5s ease;
+        }
+        @keyframes bounce-in {
+            0% { transform: scale(0.8); opacity: 0; }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        /* Page transitions */
+        .page {
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
+            display: none;
+        }
+        .page.active {
+            opacity: 1;
+            transform: translateY(0);
+            display: block;
+        }
+
+        /* Mobile menu animation */
+        .mobile-menu {
+            transition: transform 0.3s ease, opacity 0.3s ease;
+            transform: translateY(-20px);
+            opacity: 0;
+            pointer-events: none;
+        }
+        .mobile-menu.open {
+            transform: translateY(0);
+            opacity: 1;
+            pointer-events: auto;
+        }
+        
+        /* Leaderboard styles */
+        .leaderboard-entry:nth-child(even) {
+            background-color: rgba(93, 92, 222, 0.05);
+        }
+        .rank-1 {
+            background-color: rgba(255, 215, 0, 0.2) !important;
+        }
+        .rank-2 {
+            background-color: rgba(192, 192, 192, 0.2) !important;
+        }
+        .rank-3 {
+            background-color: rgba(205, 127, 50, 0.2) !important;
+        }
+    </style>
+</head>
+<body class="bg-white dark:bg-gray-900 min-h-screen font-sans transition-colors duration-300">
+    <!-- Dark mode detection -->
+    <script>
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.classList.add('dark');
+        }
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+            if (event.matches) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        });
+    </script>
+
+    <!-- Header/Navigation -->
+    <header class="sticky top-0 z-50 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
+        <div class="container mx-auto px-4 py-3">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center">
+                    <div class="logo mr-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="w-8 h-8 text-primary" fill="currentColor">
+                            <path d="M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5c0-1.1.9-2 2-2zm7 14a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm0-4a1 1 0 0 0 .95-.68l.32-1c.17-.52.24-1.13.17-1.7a3.3 3.3 0 0 0-1.56-2.48A3.27 3.27 0 0 0 9.84 7c-.3.55-.44 1.2-.35 1.86.1.86.6 1.7 1.35 2.28.27.2.46.43.56.7.1.26.15.63.1.98l-.32 1c-.1.3.03.54.32.54z"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h1 class="text-lg md:text-2xl font-bold text-gray-800 dark:text-white">
+                            <span class="text-primary">Space</span>Bar Clicker
+                        </h1>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 hidden sm:block">The Ultimate Clicking Game</p>
+                    </div>
+                </div>
+                
+                <!-- Desktop Navigation -->
+                <nav class="hidden md:flex space-x-6">
+                    <a href="#home" class="nav-link px-2 py-1 text-gray-700 dark:text-gray-200 hover:text-primary dark:hover:text-primary transition-colors font-medium" data-page="home">Home</a>
+                    <a href="#how-to-play" class="nav-link px-2 py-1 text-gray-700 dark:text-gray-200 hover:text-primary dark:hover:text-primary transition-colors font-medium" data-page="how-to-play">How To Play</a>
+                    <a href="#leaderboard" class="nav-link px-2 py-1 text-gray-700 dark:text-gray-200 hover:text-primary dark:hover:text-primary transition-colors font-medium" data-page="leaderboard">Leaderboard</a>
+                    <a href="#about" class="nav-link px-2 py-1 text-gray-700 dark:text-gray-200 hover:text-primary dark:hover:text-primary transition-colors font-medium" data-page="about">About</a>
+                </nav>
+                
+                <!-- Mobile menu button -->
+                <button id="mobile-menu-button" class="md:hidden flex items-center p-2 rounded-md text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                    </svg>
+                </button>
+            </div>
+            
+            <!-- Mobile Navigation -->
+            <div id="mobile-menu" class="mobile-menu md:hidden absolute left-0 right-0 bg-white dark:bg-gray-800 shadow-lg border-b border-gray-200 dark:border-gray-700 mt-2 z-50">
+                <div class="px-4 py-3 space-y-2">
+                    <a href="#home" class="mobile-nav-link block px-3 py-2 rounded-md text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors font-medium" data-page="home">Home</a>
+                    <a href="#how-to-play" class="mobile-nav-link block px-3 py-2 rounded-md text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors font-medium" data-page="how-to-play">How To Play</a>
+                    <a href="#leaderboard" class="mobile-nav-link block px-3 py-2 rounded-md text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors font-medium" data-page="leaderboard">Leaderboard</a>
+                    <a href="#about" class="mobile-nav-link block px-3 py-2 rounded-md text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors font-medium" data-page="about">About</a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main>
+        <!-- Home Page (Game Page) -->
+        <div id="home-page" class="page active">
+            <div class="container mx-auto p-4 max-w-6xl">
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <!-- Stats Panel -->
+                    <div class="col-span-1 lg:col-span-3">
+                        <div class="p-4 bg-white dark:bg-gray-800 rounded-xl shadow-md">
+                            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                <div class="stat-card p-3 bg-gray-50 dark:bg-gray-700 rounded-lg text-center">
+                                    <h3 class="text-sm text-gray-500 dark:text-gray-400 uppercase font-semibold">Clicks</h3>
+                                    <p id="clickCounter" class="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">0</p>
+                                </div>
+                                <div class="stat-card p-3 bg-gray-50 dark:bg-gray-700 rounded-lg text-center">
+                                    <h3 class="text-sm text-gray-500 dark:text-gray-400 uppercase font-semibold">Per Second</h3>
+                                    <p id="cpsCounter" class="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">0</p>
+                                </div>
+                                <div class="stat-card p-3 bg-gray-50 dark:bg-gray-700 rounded-lg text-center">
+                                    <h3 class="text-sm text-gray-500 dark:text-gray-400 uppercase font-semibold">Per Click</h3>
+                                    <p id="pointsPerClick" class="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">1</p>
+                                </div>
+                                <div class="stat-card p-3 bg-gray-50 dark:bg-gray-700 rounded-lg text-center">
+                                    <h3 class="text-sm text-gray-500 dark:text-gray-400 uppercase font-semibold">Auto Clicks</h3>
+                                    <p id="autoClicksPerSec" class="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">0</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Main Click Area -->
+                    <div class="col-span-1 row-span-2">
+                        <div id="clickArea" class="click-area h-full min-h-[240px] flex flex-col items-center justify-center p-6 bg-white dark:bg-gray-800 rounded-xl shadow-md border-2 border-gray-200 dark:border-gray-700 cursor-pointer hover:border-primary dark:hover:border-primary transition-colors">
+                            <div class="relative w-32 h-32 md:w-40 md:h-40 mb-4 bg-primary/10 rounded-2xl flex items-center justify-center overflow-hidden">
+                                <span id="spacebar" class="absolute inset-0 m-auto w-28 h-14 md:w-32 md:h-16 bg-gray-200 dark:bg-gray-700 rounded-lg border-b-4 border-gray-300 dark:border-gray-600 flex items-center justify-center text-gray-800 dark:text-gray-200 font-bold text-xl shadow-inner">
+                                    SPACE
+                                </span>
+                            </div>
+                            <p class="text-lg text-gray-700 dark:text-gray-300 text-center">Press <span class="font-semibold">SPACEBAR</span> or <span class="font-semibold">CLICK</span> here</p>
+                            <div id="clickIndicator" class="mt-4 text-4xl font-bold opacity-0 transition-opacity duration-200 text-primary">+<span id="clickValue">1</span></div>
+                        </div>
+                    </div>
+
+                    <!-- Upgrades Panel -->
+                    <div class="col-span-1 lg:col-span-2 row-span-2">
+                        <div class="h-full p-4 bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden flex flex-col">
+                            <div class="flex justify-between items-center mb-4">
+                                <h2 class="text-xl font-bold text-gray-800 dark:text-white flex items-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                    </svg>
+                                    Upgrades
+                                </h2>
+                                <div class="flex space-x-3">
+                                    <button id="resetBtn" class="px-3 py-1 text-sm rounded-lg bg-red-500 hover:bg-red-600 text-white transition">
+                                        Reset
+                                    </button>
+                                    <button id="saveBtn" class="px-3 py-1 text-sm rounded-lg bg-primary hover:bg-secondary text-white transition">
+                                        Save
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="upgradesContainer" class="overflow-y-auto flex-grow grid grid-cols-1 md:grid-cols-2 gap-3 pb-4 pr-1">
+                                <!-- Upgrades will be dynamically added here -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Achievements Panel -->
+                    <div class="col-span-1 lg:col-span-3">
+                        <div class="p-4 bg-white dark:bg-gray-800 rounded-xl shadow-md">
+                            <h2 class="text-xl font-bold text-gray-800 dark:text-white mb-4 flex items-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                                </svg>
+                                Achievements
+                            </h2>
+                            <div id="achievementsContainer" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                                <!-- Achievements will be dynamically added here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- How To Play Page -->
+        <div id="how-to-play-page" class="page">
+            <div class="container mx-auto p-4 max-w-4xl">
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 mb-6">
+                    <h1 class="text-3xl font-bold text-gray-800 dark:text-white mb-6">How To Play SpaceBar Clicker</h1>
+                    
+                    <div class="space-y-6">
+                        <div class="border-l-4 border-primary pl-4 py-2">
+                            <p class="text-gray-700 dark:text-gray-300">SpaceBar Clicker is an incremental game where you click to earn points, purchase upgrades, and unlock achievements. The more you click, the more points you earn, which you can use to buy upgrades that make clicking more efficient!</p>
+                        </div>
+                        
+                        <div>
+                            <h2 class="text-xl font-bold text-gray-800 dark:text-white mb-3">Getting Started</h2>
+                            <ol class="list-decimal list-inside space-y-2 text-gray-700 dark:text-gray-300">
+                                <li>Press the <strong>spacebar</strong> key on your keyboard or <strong>click</strong> on the click area as fast as you can.</li>
+                                <li>Each click will earn you points (displayed at the top of the screen).</li>
+                                <li>Use these points to purchase upgrades that will help you earn points faster.</li>
+                                <li>Try to unlock all achievements by reaching various milestones in the game.</li>
+                            </ol>
+                        </div>
+                        
+                        <div>
+                            <h2 class="text-xl font-bold text-gray-800 dark:text-white mb-3">Upgrades</h2>
+                            <p class="mb-3 text-gray-700 dark:text-gray-300">The game features various upgrades that can significantly boost your clicking power:</p>
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                                    <h3 class="font-bold text-gray-800 dark:text-white mb-2">Better Clicks</h3>
+                                    <p class="text-gray-700 dark:text-gray-300 text-sm">Increases the base value of each click.</p>
+                                </div>
+                                
+                                <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                                    <h3 class="font-bold text-gray-800 dark:text-white mb-2">Double Clicker</h3>
+                                    <p class="text-gray-700 dark:text-gray-300 text-sm">Doubles the value of each click.</p>
+                                </div>
+                                
+                                <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                                    <h3 class="font-bold text-gray-800 dark:text-white mb-2">Auto Clickers</h3>
+                                    <p class="text-gray-700 dark:text-gray-300 text-sm">Automatically click for you at different rates, generating passive income.</p>
+                                </div>
+                                
+                                <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                                    <h3 class="font-bold text-gray-800 dark:text-white mb-2">Special Abilities</h3>
+                                    <p class="text-gray-700 dark:text-gray-300 text-sm">Unlock special abilities like Golden Clicks, Rapid Fire, and Click Combo for bonus effects.</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <h2 class="text-xl font-bold text-gray-800 dark:text-white mb-3">Special Abilities</h2>
+                            <ul class="list-disc list-inside space-y-2 text-gray-700 dark:text-gray-300">
+                                <li><strong>Golden Clicks:</strong> 5% chance to get 5x points per click.</li>
+                                <li><strong>Rapid Fire:</strong> Click value increases by 50% for 5 seconds after 10 rapid clicks.</li>
+                                <li><strong>Click Combo:</strong> Each consecutive click increases value by 10% (max 100%).</li>
+                            </ul>
+                        </div>
+                        
+                        <div>
+                            <h2 class="text-xl font-bold text-gray-800 dark:text-white mb-3">Achievements</h2>
+                            <p class="text-gray-700 dark:text-gray-300">The game includes various achievements to unlock as you progress. These range from simple milestones (like your first click) to more challenging goals (like reaching 1,000,000 clicks).</p>
+                        </div>
+                        
+                        <div>
+                            <h2 class="text-xl font-bold text-gray-800 dark:text-white mb-3">Tips & Tricks</h2>
+                            <ul class="list-disc list-inside space-y-2 text-gray-700 dark:text-gray-300">
+                                <li>Start by investing in auto-clickers to build passive income.</li>
+                                <li>Use both your keyboard and mouse for maximum efficiency.</li>
+                                <li>Balance your upgrades between immediate benefits and long-term growth.</li>
+                                <li>Don't forget to save your progress regularly!</li>
+                                <li>Try to maintain a steady clicking rhythm for best results.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="text-center">
+                    <button class="px-6 py-2 rounded-lg bg-primary hover:bg-secondary text-white transition-colors font-medium" onclick="navigateToPage('home')">
+                        Return to Game
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Leaderboard Page -->
+        <div id="leaderboard-page" class="page">
+            <div class="container mx-auto p-4 max-w-4xl">
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 mb-6">
+                    <h1 class="text-3xl font-bold text-gray-800 dark:text-white mb-6">Global Leaderboard</h1>
+                    
+                    <div class="mb-6">
+                        <div class="bg-primary/10 dark:bg-primary/20 rounded-lg p-4 border-l-4 border-primary">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0 mr-4">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h2 class="text-xl font-bold text-gray-800 dark:text-white">Your Current Stats</h2>
+                                    <p class="text-gray-700 dark:text-gray-300">Submit your score to see how you rank against other players!</p>
+                                </div>
+                            </div>
+                            
+                            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+                                <div class="bg-white dark:bg-gray-700 rounded-lg p-3 text-center">
+                                    <p class="text-sm text-gray-500 dark:text-gray-400">Total Clicks</p>
+                                    <p id="leaderboard-total-clicks" class="text-xl font-bold text-gray-900 dark:text-white">0</p>
+                                </div>
+                                <div class="bg-white dark:bg-gray-700 rounded-lg p-3 text-center">
+                                    <p class="text-sm text-gray-500 dark:text-gray-400">Highest CPS</p>
+                                    <p id="leaderboard-max-cps" class="text-xl font-bold text-gray-900 dark:text-white">0</p>
+                                </div>
+                                <div class="bg-white dark:bg-gray-700 rounded-lg p-3 text-center">
+                                    <p class="text-sm text-gray-500 dark:text-gray-400">Achievements</p>
+                                    <p id="leaderboard-achievements" class="text-xl font-bold text-gray-900 dark:text-white">0/11</p>
+                                </div>
+                                <div class="bg-white dark:bg-gray-700 rounded-lg p-3 text-center">
+                                    <p class="text-sm text-gray-500 dark:text-gray-400">Upgrades</p>
+                                    <p id="leaderboard-upgrades" class="text-xl font-bold text-gray-900 dark:text-white">0/8</p>
+                                </div>
+                            </div>
+                            
+                            <div class="mt-4 flex justify-center">
+                                <button id="submit-score-btn" class="px-4 py-2 bg-primary hover:bg-secondary text-white rounded-lg transition-colors flex items-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                                    </svg>
+                                    Submit Score
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <h2 class="text-xl font-bold text-gray-800 dark:text-white mb-4">Top Players</h2>
+                        
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full bg-white dark:bg-gray-800 rounded-lg overflow-hidden">
+                                <thead class="bg-gray-100 dark:bg-gray-700">
+                                    <tr>
+                                        <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Rank</th>
+                                        <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Player</th>
+                                        <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Total Clicks</th>
+                                        <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Highest CPS</th>
+                                        <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Achievements</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="leaderboard-table" class="divide-y divide-gray-200 dark:divide-gray-700">
+                                    <!-- Leaderboard entries will be added dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="text-center">
+                    <button class="px-6 py-2 rounded-lg bg-primary hover:bg-secondary text-white transition-colors font-medium" onclick="navigateToPage('home')">
+                        Return to Game
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- About Page -->
+        <div id="about-page" class="page">
+            <div class="container mx-auto p-4 max-w-4xl">
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 mb-6">
+                    <h1 class="text-3xl font-bold text-gray-800 dark:text-white mb-6">About SpaceBar Clicker</h1>
+                    
+                    <div class="space-y-6">
+                        <div>
+                            <h2 class="text-xl font-bold text-gray-800 dark:text-white mb-3">The Game</h2>
+                            <p class="text-gray-700 dark:text-gray-300">SpaceBar Clicker is an incremental/idle game where players earn points by clicking the spacebar or the click area. These points can be used to purchase upgrades that increase clicking efficiency and unlock special abilities.</p>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                                <h3 class="font-bold text-gray-800 dark:text-white mb-2">Features</h3>
+                                <ul class="list-disc list-inside space-y-1 text-gray-700 dark:text-gray-300 text-sm">
+                                    <li>Simple yet addictive gameplay</li>
+                                    <li>Multiple upgrade paths</li>
+                                    <li>Achievement system</li>
+                                    <li>Auto-clickers for passive income</li>
+                                    <li>Special abilities and power-ups</li>
+                                    <li>Global leaderboard</li>
+                                    <li>Progress tracking and saving</li>
+                                </ul>
+                            </div>
+                            
+                            <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                                <h3 class="font-bold text-gray-800 dark:text-white mb-2">Technology</h3>
+                                <ul class="list-disc list-inside space-y-1 text-gray-700 dark:text-gray-300 text-sm">
+                                    <li>Built with HTML5, CSS3, and JavaScript</li>
+                                    <li>Responsive design that works on all devices</li>
+                                    <li>Styled with TailwindCSS</li>
+                                    <li>No external dependencies or frameworks</li>
+                                    <li>Dark mode support</li>
+                                    <li>Optimized performance</li>
+                                </ul>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <h2 class="text-xl font-bold text-gray-800 dark:text-white mb-3">A Brief History of Clicker Games</h2>
+                            <p class="text-gray-700 dark:text-gray-300 mb-3">Clicker or incremental games have been around since the early 2000s but gained massive popularity with titles like Cookie Clicker in 2013. These games are characterized by simple gameplay loops focused on earning currency through repeated actions, which can then be spent on upgrades to automate or enhance the currency generation.</p>
+                            <p class="text-gray-700 dark:text-gray-300">Their appeal lies in the satisfying progression curve, the dopamine hit from seeing numbers go up, and the strategic decisions about which upgrades to prioritize.</p>
+                        </div>
+                        
+                        <div>
+                            <h2 class="text-xl font-bold text-gray-800 dark:text-white mb-3">Why Play SpaceBar Clicker?</h2>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                                <div class="bg-white dark:bg-gray-700 shadow p-4 rounded-lg">
+                                    <div class="text-3xl mb-2 text-primary">🧠</div>
+                                    <h3 class="font-bold text-gray-800 dark:text-white mb-1">Strategic Depth</h3>
+                                    <p class="text-sm text-gray-700 dark:text-gray-300">Balance short-term gains with long-term investments.</p>
+                                </div>
+                                <div class="bg-white dark:bg-gray-700 shadow p-4 rounded-lg">
+                                    <div class="text-3xl mb-2 text-primary">🎯</div>
+                                    <h3 class="font-bold text-gray-800 dark:text-white mb-1">Goal-Oriented</h3>
+                                    <p class="text-sm text-gray-700 dark:text-gray-300">Clear achievements give you targets to work toward.</p>
+                                </div>
+                                <div class="bg-white dark:bg-gray-700 shadow p-4 rounded-lg">
+                                    <div class="text-3xl mb-2 text-primary">⚡</div>
+                                    <h3 class="font-bold text-gray-800 dark:text-white mb-1">Quick Sessions</h3>
+                                    <p class="text-sm text-gray-700 dark:text-gray-300">Play for minutes or hours, progress is always saved.</p>
+                                </div>
+                                <div class="bg-white dark:bg-gray-700 shadow p-4 rounded-lg">
+                                    <div class="text-3xl mb-2 text-primary">🏆</div>
+                                    <h3 class="font-bold text-gray-800 dark:text-white mb-1">Competitive</h3>
+                                    <p class="text-sm text-gray-700 dark:text-gray-300">Compare your progress with players worldwide.</p>
+                                </div>
+                                <div class="bg-white dark:bg-gray-700 shadow p-4 rounded-lg">
+                                    <div class="text-3xl mb-2 text-primary">🎮</div>
+                                    <h3 class="font-bold text-gray-800 dark:text-white mb-1">Low-Stress</h3>
+                                    <p class="text-sm text-gray-700 dark:text-gray-300">Relaxing gameplay with no pressure or time limits.</p>
+                                </div>
+                                <div class="bg-white dark:bg-gray-700 shadow p-4 rounded-lg">
+                                    <div class="text-3xl mb-2 text-primary">📱</div>
+                                    <h3 class="font-bold text-gray-800 dark:text-white mb-1">Play Anywhere</h3>
+                                    <p class="text-sm text-gray-700 dark:text-gray-300">Works on desktop, tablet, and mobile devices.</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <h2 class="text-xl font-bold text-gray-800 dark:text-white mb-3">Contact & Feedback</h2>
+                            <p class="text-gray-700 dark:text-gray-300 mb-4">We'd love to hear your thoughts on the game! Feel free to reach out with feedback, suggestions, or bug reports.</p>
+                            
+                            <div class="flex flex-col sm:flex-row gap-4">
+                                <a href="#" class="px-4 py-2 bg-primary hover:bg-secondary text-white rounded-lg transition-colors flex items-center justify-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                    </svg>
+                                    Contact Us
+                                </a>
+                                <a href="#" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors flex items-center justify-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                    </svg>
+                                    Privacy Policy
+                                </a>
+                                <a href="#" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors flex items-center justify-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                                    </svg>
+                                    Terms of Use
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="text-center">
+                    <button class="px-6 py-2 rounded-lg bg-primary hover:bg-secondary text-white transition-colors font-medium" onclick="navigateToPage('home')">
+                        Return to Game
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 mt-10">
+        <div class="container mx-auto px-4 py-6">
+            <div class="flex flex-col md:flex-row justify-between items-center">
+                <div class="mb-4 md:mb-0">
+                    <h2 class="text-lg font-bold text-gray-800 dark:text-white">
+                        <span class="text-primary">Space</span>Bar Clicker
+                    </h2>
+                    <p class="text-sm text-gray-600 dark:text-gray-400">© 2023 SpaceBar Clicker. All rights reserved.</p>
+                </div>
+                
+                <div class="flex space-x-6">
+                    <a href="#" class="text-gray-500 hover:text-primary dark:text-gray-400 dark:hover:text-primary transition-colors">
+                        <span class="sr-only">Facebook</span>
+                        <svg class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path fill-rule="evenodd" d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.988C18.343 21.128 22 16.991 22 12z" clip-rule="evenodd"></path>
+                        </svg>
+                    </a>
+                    <a href="#" class="text-gray-500 hover:text-primary dark:text-gray-400 dark:hover:text-primary transition-colors">
+                        <span class="sr-only">Twitter</span>
+                        <svg class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M8.29 20.251c7.547 0 11.675-6.253 11.675-11.675 0-.178 0-.355-.012-.53A8.348 8.348 0 0022 5.92a8.19 8.19 0 01-2.357.646 4.118 4.118 0 001.804-2.27 8.224 8.224 0 01-2.605.996 4.107 4.107 0 00-6.993 3.743 11.65 11.65 0 01-8.457-4.287 4.106 4.106 0 001.27 5.477A4.072 4.072 0 012.8 9.713v.052a4.105 4.105 0 003.292 4.022 4.095 4.095 0 01-1.853.07 4.108 4.108 0 003.834 2.85A8.233 8.233 0 012 18.407a11.616 11.616 0 006.29 1.84"></path>
+                        </svg>
+                    </a>
+                    <a href="#" class="text-gray-500 hover:text-primary dark:text-gray-400 dark:hover:text-primary transition-colors">
+                        <span class="sr-only">GitHub</span>
+                        <svg class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path fill-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clip-rule="evenodd"></path>
+                        </svg>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Notification toast -->
+    <div id="notification" class="fixed bottom-4 right-4 bg-white dark:bg-gray-800 px-4 py-3 rounded-lg shadow-lg border-l-4 border-primary transform translate-y-16 opacity-0 transition-all duration-300 max-w-xs z-50">
+        <div class="flex items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <div>
+                <h3 class="font-bold text-gray-900 dark:text-white" id="notificationTitle">Upgrade Purchased!</h3>
+                <p class="text-sm text-gray-600 dark:text-gray-300" id="notificationMessage">You've purchased a new upgrade.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Name Input Modal -->
+    <div id="nameModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
+            <h2 class="text-xl font-bold text-gray-800 dark:text-white mb-4">Submit Your Score</h2>
+            <p class="text-gray-700 dark:text-gray-300 mb-4">Enter your name to be added to the leaderboard:</p>
+            
+            <div class="mb-4">
+                <label for="playerName" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Player Name</label>
+                <input type="text" id="playerName" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary text-base" placeholder="Enter your name" maxlength="20">
+            </div>
+            
+            <div class="flex justify-end space-x-3">
+                <button id="cancelSubmit" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-white rounded-md transition-colors">
+                    Cancel
+                </button>
+                <button id="confirmSubmit" class="px-4 py-2 bg-primary hover:bg-secondary text-white rounded-md transition-colors">
+                    Submit
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Game state
+        let state = {
+            clicks: 0,
+            clickValue: 1,
+            autoClicksPerSecond: 0,
+            cps: 0,
+            maxCps: 0,
+            lastClickTimestamps: [],
+            achievementsUnlocked: []
+        };
+
+        // Upgrades data
+        const upgrades = [
+            { id: 'betterClicks', name: 'Better Clicks', description: 'Increase points per click by 1', baseCost: 10, costMultiplier: 1.5, level: 0, maxLevel: 10, effect: 'clickValue', effectMultiplier: 1 },
+            { id: 'doubleClicker', name: 'Double Clicker', description: 'Double your clicks per second', baseCost: 50, costMultiplier: 2.0, level: 0, maxLevel: 5, effect: 'clickValue', effectMultiplier: 2 },
+            { id: 'autoClicker1', name: 'Auto Clicker I', description: 'Automatically click once every 10 seconds', baseCost: 100, costMultiplier: 1.3, level: 0, maxLevel: 10, effect: 'autoClicks', effectValue: 0.1 },
+            { id: 'autoClicker2', name: 'Auto Clicker II', description: 'Automatically click once every 5 seconds', baseCost: 250, costMultiplier: 1.4, level: 0, maxLevel: 10, effect: 'autoClicks', effectValue: 0.2 },
+            { id: 'autoClicker3', name: 'Auto Clicker III', description: 'Automatically click once every second', baseCost: 1000, costMultiplier: 1.5, level: 0, maxLevel: 10, effect: 'autoClicks', effectValue: 1 },
+            { id: 'goldenClicks', name: 'Golden Clicks', description: '5% chance to get 5x points per click', baseCost: 500, costMultiplier: 2.0, level: 0, maxLevel: 1, effect: 'special', effectName: 'goldenClicks' },
+            { id: 'rapidFire', name: 'Rapid Fire', description: 'Click value +50% for 5 seconds after 10 rapid clicks', baseCost: 2000, costMultiplier: 1.8, level: 0, maxLevel: 1, effect: 'special', effectName: 'rapidFire' },
+            { id: 'clickCombo', name: 'Click Combo', description: 'Each consecutive click increases value by 10% (max 100%)', baseCost: 3000, costMultiplier: 2.0, level: 0, maxLevel: 1, effect: 'special', effectName: 'clickCombo' }
+        ];
+
+        // Achievements data
+        const achievements = [
+            { id: 'firstClick', name: 'First Click', description: 'Click for the first time', requirement: () => state.clicks >= 1, icon: '👆' },
+            { id: 'click100', name: 'Century', description: 'Reach 100 clicks', requirement: () => state.clicks >= 100, icon: '💯' },
+            { id: 'click1000', name: 'Dedicated', description: 'Reach 1,000 clicks', requirement: () => state.clicks >= 1000, icon: '🔥' },
+            { id: 'click10000', name: 'Devoted', description: 'Reach 10,000 clicks', requirement: () => state.clicks >= 10000, icon: '⚡' },
+            { id: 'click100000', name: 'Obsessed', description: 'Reach 100,000 clicks', requirement: () => state.clicks >= 100000, icon: '🌟' },
+            { id: 'click1000000', name: 'Legendary', description: 'Reach 1,000,000 clicks', requirement: () => state.clicks >= 1000000, icon: '👑' },
+            { id: 'cps10', name: 'Quick Fingers', description: 'Reach 10 clicks per second', requirement: () => state.cps >= 10, icon: '🏃‍♂️' },
+            { id: 'autoClicker', name: 'Automation', description: 'Purchase your first auto clicker', requirement: () => upgrades.find(u => u.id.includes('autoClicker')).level > 0, icon: '🤖' },
+            { id: 'fullUpgrade', name: 'Maximizer', description: 'Max out any upgrade', requirement: () => upgrades.some(u => u.level >= u.maxLevel), icon: '⭐' },
+            { id: 'allUpgrades', name: 'Collector', description: 'Purchase at least one level of each upgrade', requirement: () => upgrades.every(u => u.level > 0), icon: '🏆' },
+            { id: 'allAchievements', name: 'Completionist', description: 'Unlock all other achievements', requirement: () => state.achievementsUnlocked.length >= achievements.length - 1, icon: '🎖️' }
+        ];
+
+        // Leaderboard data (mock data)
+        let leaderboard = [
+            { name: "ClickMaster", totalClicks: 1568932, maxCps: 25, achievements: 11 },
+            { name: "SpacebarPro", totalClicks: 982457, maxCps: 23, achievements: 10 },
+            { name: "ClickNinja", totalClicks: 756201, maxCps: 22, achievements: 9 },
+            { name: "SpeedClicker", totalClicks: 523487, maxCps: 21, achievements: 9 },
+            { name: "ClickerHero", totalClicks: 320159, maxCps: 19, achievements: 8 },
+            { name: "RapidTapper", totalClicks: 192847, maxCps: 18, achievements: 7 },
+            { name: "ClickWizard", totalClicks: 120563, maxCps: 16, achievements: 6 },
+            { name: "SpacebarKing", totalClicks: 87452, maxCps: 15, achievements: 5 },
+            { name: "FastFingers", totalClicks: 45896, maxCps: 14, achievements: 4 },
+            { name: "ClickNewbie", totalClicks: 15784, maxCps: 10, achievements: 3 }
+        ];
+
+        // DOM elements
+        const clickCounter = document.getElementById('clickCounter');
+        const cpsCounter = document.getElementById('cpsCounter');
+        const pointsPerClick = document.getElementById('pointsPerClick');
+        const autoClicksPerSec = document.getElementById('autoClicksPerSec');
+        const clickArea = document.getElementById('clickArea');
+        const spacebar = document.getElementById('spacebar');
+        const clickIndicator = document.getElementById('clickIndicator');
+        const clickValue = document.getElementById('clickValue');
+        const upgradesContainer = document.getElementById('upgradesContainer');
+        const achievementsContainer = document.getElementById('achievementsContainer');
+        const notification = document.getElementById('notification');
+        const notificationTitle = document.getElementById('notificationTitle');
+        const notificationMessage = document.getElementById('notificationMessage');
+        const saveBtn = document.getElementById('saveBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const mobileMenuButton = document.getElementById('mobile-menu-button');
+        const mobileMenu = document.getElementById('mobile-menu');
+        const submitScoreBtn = document.getElementById('submit-score-btn');
+        const nameModal = document.getElementById('nameModal');
+        const playerNameInput = document.getElementById('playerName');
+        const confirmSubmitBtn = document.getElementById('confirmSubmit');
+        const cancelSubmitBtn = document.getElementById('cancelSubmit');
+
+        // Special effects state
+        let specialEffects = {
+            goldenClicks: false,
+            rapidFire: {
+                active: false,
+                clicks: 0,
+                timeout: null
+            },
+            clickCombo: {
+                active: false,
+                combo: 0,
+                timeout: null
+            }
+        };
+
+        // Page navigation
+        function navigateToPage(pageId) {
+            // Hide all pages
+            document.querySelectorAll('.page').forEach(page => {
+                page.classList.remove('active');
+            });
+            
+            // Show selected page
+            document.getElementById(`${pageId}-page`).classList.add('active');
+            
+            // Close mobile menu if open
+            if (mobileMenu.classList.contains('open')) {
+                mobileMenu.classList.remove('open');
+            }
+            
+            // Update navigation links
+            document.querySelectorAll('.nav-link, .mobile-nav-link').forEach(link => {
+                if (link.getAttribute('data-page') === pageId) {
+                    link.classList.add('text-primary');
+                    link.classList.remove('text-gray-700', 'dark:text-gray-200');
+                } else {
+                    link.classList.remove('text-primary');
+                    link.classList.add('text-gray-700', 'dark:text-gray-200');
+                }
+            });
+            
+            // Scroll to top
+            window.scrollTo(0, 0);
+            
+            // Update leaderboard if navigating to leaderboard page
+            if (pageId === 'leaderboard') {
+                updateLeaderboardUI();
+            }
+        }
+
+        // Initialize the game
+        function initGame() {
+            loadGame();
+            renderUpgrades();
+            renderAchievements();
+            updateUI();
+            
+            // Initialize leaderboard
+            renderLeaderboard();
+            
+            // Start auto-clicking and CPS calculation interval
+            setInterval(autoClick, 1000);
+            setInterval(calculateCPS, 1000);
+            
+            // Add event listeners
+            document.addEventListener('keydown', handleKeyPress);
+            clickArea.addEventListener('click', handleClick);
+            saveBtn.addEventListener('click', saveGame);
+            resetBtn.addEventListener('click', confirmReset);
+            
+            // Mobile menu toggle
+            mobileMenuButton.addEventListener('click', () => {
+                mobileMenu.classList.toggle('open');
+            });
+            
+            // Navigation links
+            document.querySelectorAll('.nav-link, .mobile-nav-link').forEach(link => {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const pageId = link.getAttribute('data-page');
+                    navigateToPage(pageId);
+                });
+            });
+            
+            // Leaderboard submission
+            submitScoreBtn.addEventListener('click', () => {
+                nameModal.classList.remove('hidden');
+            });
+            
+            confirmSubmitBtn.addEventListener('click', submitScore);
+            
+            cancelSubmitBtn.addEventListener('click', () => {
+                nameModal.classList.add('hidden');
+            });
+        }
+
+        // Handle spacebar press or click
+        function handleKeyPress(e) {
+            if (e.code === 'Space' || e.key === ' ') {
+                // Only handle spacebar press if on home page
+                if (document.getElementById('home-page').classList.contains('active')) {
+                    e.preventDefault();
+                    handleClick();
+                }
+            }
+        }
+
+        function handleClick() {
+            // Only handle click if on home page
+            if (!document.getElementById('home-page').classList.contains('active')) return;
+            
+            // Animate spacebar
+            spacebar.classList.add('transform', 'translate-y-1');
+            setTimeout(() => {
+                spacebar.classList.remove('transform', 'translate-y-1');
+            }, 100);
+            
+            // Calculate click value with special effects
+            let value = state.clickValue;
+            
+            // Handle golden clicks
+            if (specialEffects.goldenClicks && Math.random() < 0.05) {
+                value *= 5;
+                showFloatingText('GOLDEN CLICK!', true);
+            }
+            
+            // Handle rapid fire
+            if (specialEffects.rapidFire.active) {
+                specialEffects.rapidFire.clicks++;
+                
+                if (specialEffects.rapidFire.clicks >= 10) {
+                    if (specialEffects.rapidFire.timeout) {
+                        clearTimeout(specialEffects.rapidFire.timeout);
+                    }
+                    
+                    showNotification('Rapid Fire Activated!', '+50% click value for 5 seconds');
+                    value *= 1.5;
+                    
+                    specialEffects.rapidFire.timeout = setTimeout(() => {
+                        specialEffects.rapidFire.clicks = 0;
+                    }, 5000);
+                }
+            }
+            
+            // Handle click combo
+            if (specialEffects.clickCombo.active) {
+                if (specialEffects.clickCombo.timeout) {
+                    clearTimeout(specialEffects.clickCombo.timeout);
+                }
+                
+                specialEffects.clickCombo.combo = Math.min(10, specialEffects.clickCombo.combo + 1);
+                const comboMultiplier = 1 + (specialEffects.clickCombo.combo * 0.1);
+                value *= comboMultiplier;
+                
+                specialEffects.clickCombo.timeout = setTimeout(() => {
+                    specialEffects.clickCombo.combo = 0;
+                }, 2000);
+            }
+            
+            // Add to clicks
+            state.clicks += value;
+            
+            // Update CPS calculation
+            state.lastClickTimestamps.push(Date.now());
+            
+            // Update UI
+            updateUI();
+            showClickIndicator(value);
+            createClickParticle();
+            checkAchievements();
+        }
+
+        // Auto-click function
+        function autoClick() {
+            if (state.autoClicksPerSecond > 0) {
+                state.clicks += state.autoClicksPerSecond * state.clickValue;
+                updateUI();
+                checkAchievements();
+            }
+        }
+
+        // Calculate clicks per second
+        function calculateCPS() {
+            const now = Date.now();
+            const oneSecondAgo = now - 1000;
+            
+            // Remove clicks older than 1 second
+            state.lastClickTimestamps = state.lastClickTimestamps.filter(timestamp => timestamp > oneSecondAgo);
+            
+            // Calculate CPS
+            state.cps = state.lastClickTimestamps.length;
+            if (state.cps > state.maxCps) {
+                state.maxCps = state.cps;
+            }
+            
+            cpsCounter.textContent = state.cps;
+        }
+
+        // Update UI elements
+        function updateUI() {
+            clickCounter.textContent = Math.floor(state.clicks);
+            pointsPerClick.textContent = state.clickValue;
+            autoClicksPerSec.textContent = state.autoClicksPerSecond.toFixed(1);
+            
+            // Update available upgrades
+            updateUpgradesAvailability();
+        }
+
+        // Show click indicator
+        function showClickIndicator(value) {
+            clickValue.textContent = value % 1 === 0 ? value : value.toFixed(1);
+            clickIndicator.style.opacity = '1';
+            
+            setTimeout(() => {
+                clickIndicator.style.opacity = '0';
+            }, 500);
+        }
+
+        // Create click particle effect
+        function createClickParticle() {
+            const particle = document.createElement('div');
+            particle.className = 'particle';
+            
+            // Random position around the click area
+            const randomX = Math.random() * 60 - 30;
+            const randomSize = Math.floor(Math.random() * 20) + 10;
+            
+            particle.style.left = `calc(50% + ${randomX}px)`;
+            particle.style.top = '50%';
+            particle.style.fontSize = `${randomSize}px`;
+            particle.style.color = `hsl(${Math.random() * 60 + 230}, 70%, 60%)`;
+            particle.textContent = '+' + (Math.random() > 0.8 ? '🔥' : '1');
+            
+            clickArea.appendChild(particle);
+            
+            // Remove particle after animation
+            setTimeout(() => {
+                if (particle.parentNode) {
+                    particle.parentNode.removeChild(particle);
+                }
+            }, 1000);
+        }
+
+        // Show floating text
+        function showFloatingText(text, isSpecial = false) {
+            const floatingText = document.createElement('div');
+            floatingText.className = 'particle text-lg font-bold';
+            
+            if (isSpecial) {
+                floatingText.classList.add('text-yellow-500', 'text-2xl');
+            }
+            
+            floatingText.style.left = '50%';
+            floatingText.style.top = '40%';
+            floatingText.style.transform = 'translate(-50%, -50%)';
+            floatingText.textContent = text;
+            
+            clickArea.appendChild(floatingText);
+            
+            // Remove text after animation
+            setTimeout(() => {
+                if (floatingText.parentNode) {
+                    floatingText.parentNode.removeChild(floatingText);
+                }
+            }, 1000);
+        }
+
+        // Render upgrades
+        function renderUpgrades() {
+            upgradesContainer.innerHTML = '';
+            
+            upgrades.forEach(upgrade => {
+                // Calculate cost for next level
+                const cost = Math.ceil(upgrade.baseCost * Math.pow(upgrade.costMultiplier, upgrade.level));
+                
+                const upgradeElement = document.createElement('div');
+                upgradeElement.className = `upgrade-item p-3 border border-gray-200 dark:border-gray-700 rounded-lg ${state.clicks >= cost && upgrade.level < upgrade.maxLevel ? 'cursor-pointer hover:border-primary dark:hover:border-primary' : 'disabled'}`;
+                upgradeElement.dataset.id = upgrade.id;
+                
+                // Show level if not boolean upgrade
+                const levelDisplay = upgrade.maxLevel > 1 
+                    ? `<div class="text-xs text-gray-500 dark:text-gray-400">Level ${upgrade.level}/${upgrade.maxLevel}</div>` 
+                    : `<div class="text-xs text-gray-500 dark:text-gray-400">${upgrade.level > 0 ? 'Purchased' : 'Not Purchased'}</div>`;
+                
+                upgradeElement.innerHTML = `
+                    <div class="flex justify-between items-start mb-2">
+                        <h3 class="font-semibold text-gray-800 dark:text-white">${upgrade.name}</h3>
+                        ${levelDisplay}
+                    </div>
+                    <p class="text-xs text-gray-600 dark:text-gray-300 mb-2">${upgrade.description}</p>
+                    <div class="flex justify-between items-center">
+                        <div class="text-primary font-semibold">${cost} clicks</div>
+                        <button class="px-2 py-1 text-xs rounded bg-primary hover:bg-secondary text-white disabled:bg-gray-400 disabled:cursor-not-allowed" 
+                                ${state.clicks < cost || upgrade.level >= upgrade.maxLevel ? 'disabled' : ''}>
+                            ${upgrade.level >= upgrade.maxLevel ? 'Maxed' : 'Upgrade'}
+                        </button>
+                    </div>
+                `;
+                
+                // Add event listener
+                if (state.clicks >= cost && upgrade.level < upgrade.maxLevel) {
+                    upgradeElement.addEventListener('click', () => purchaseUpgrade(upgrade.id));
+                }
+                
+                upgradesContainer.appendChild(upgradeElement);
+            });
+        }
+
+        // Update upgrades availability
+        function updateUpgradesAvailability() {
+            document.querySelectorAll('.upgrade-item').forEach(item => {
+                const upgradeId = item.dataset.id;
+                const upgrade = upgrades.find(u => u.id === upgradeId);
+                if (!upgrade) return;
+                
+                const cost = Math.ceil(upgrade.baseCost * Math.pow(upgrade.costMultiplier, upgrade.level));
+                
+                if (state.clicks >= cost && upgrade.level < upgrade.maxLevel) {
+                    item.classList.remove('disabled');
+                    item.classList.add('cursor-pointer', 'hover:border-primary', 'dark:hover:border-primary');
+                    
+                    const button = item.querySelector('button');
+                    if (button) {
+                        button.disabled = false;
+                    }
+                } else {
+                    item.classList.add('disabled');
+                    item.classList.remove('cursor-pointer', 'hover:border-primary', 'dark:hover:border-primary');
+                    
+                    const button = item.querySelector('button');
+                    if (button) {
+                        button.disabled = true;
+                    }
+                }
+            });
+        }
+
+        // Purchase upgrade
+        function purchaseUpgrade(id) {
+            const upgrade = upgrades.find(u => u.id === id);
+            
+            if (!upgrade || upgrade.level >= upgrade.maxLevel) return;
+            
+            const cost = Math.ceil(upgrade.baseCost * Math.pow(upgrade.costMultiplier, upgrade.level));
+            
+            if (state.clicks >= cost) {
+                state.clicks -= cost;
+                upgrade.level++;
+                
+                // Apply upgrade effect
+                if (upgrade.effect === 'clickValue') {
+                    if (upgrade.effectMultiplier) {
+                        state.clickValue *= upgrade.effectMultiplier;
+                    } else {
+                        state.clickValue += upgrade.effectValue || 1;
+                    }
+                } else if (upgrade.effect === 'autoClicks') {
+                    state.autoClicksPerSecond += upgrade.effectValue;
+                } else if (upgrade.effect === 'special') {
+                    if (upgrade.effectName === 'goldenClicks') {
+                        specialEffects.goldenClicks = true;
+                    } else if (upgrade.effectName === 'rapidFire') {
+                        specialEffects.rapidFire.active = true;
+                    } else if (upgrade.effectName === 'clickCombo') {
+                        specialEffects.clickCombo.active = true;
+                    }
+                }
+                
+                // Show notification
+                showNotification('Upgrade Purchased!', `You've purchased ${upgrade.name}`);
+                
+                // Update UI
+                updateUI();
+                renderUpgrades();
+                checkAchievements();
+            }
+        }
+
+        // Render achievements
+        function renderAchievements() {
+            if (!achievementsContainer) return;
+            
+            achievementsContainer.innerHTML = '';
+            
+            achievements.forEach(achievement => {
+                const isUnlocked = state.achievementsUnlocked.includes(achievement.id);
+                
+                const achievementElement = document.createElement('div');
+                achievementElement.className = `has-tooltip p-3 border ${isUnlocked ? 'border-yellow-400 bg-yellow-50 dark:bg-yellow-900/20' : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700'} rounded-lg text-center`;
+                
+                achievementElement.innerHTML = `
+                    <div class="text-4xl mb-1">${isUnlocked ? achievement.icon : '?'}</div>
+                    <h3 class="font-medium text-gray-800 dark:text-white text-sm">${isUnlocked ? achievement.name : '???'}</h3>
+                    <div class="tooltip rounded bg-black/80 text-white text-xs p-2 -mt-10 max-w-xs">
+                        ${isUnlocked ? achievement.description : 'Achievement locked'}
+                    </div>
+                `;
+                
+                achievementsContainer.appendChild(achievementElement);
+            });
+        }
+
+        // Check achievements
+        function checkAchievements() {
+            let newAchievements = false;
+            
+            achievements.forEach(achievement => {
+                if (!state.achievementsUnlocked.includes(achievement.id) && achievement.requirement()) {
+                    state.achievementsUnlocked.push(achievement.id);
+                    showNotification('Achievement Unlocked!', achievement.name);
+                    newAchievements = true;
+                }
+            });
+            
+            if (newAchievements) {
+                renderAchievements();
+            }
+        }
+
+        // Show notification
+        function showNotification(title, message) {
+            notificationTitle.textContent = title;
+            notificationMessage.textContent = message;
+            
+            notification.classList.remove('translate-y-16', 'opacity-0');
+            notification.classList.add('translate-y-0', 'opacity-100');
+            
+            setTimeout(() => {
+                notification.classList.remove('translate-y-0', 'opacity-100');
+                notification.classList.add('translate-y-16', 'opacity-0');
+            }, 3000);
+        }
+
+        // Save game
+        function saveGame() {
+            const saveData = {
+                clicks: state.clicks,
+                clickValue: state.clickValue,
+                autoClicksPerSecond: state.autoClicksPerSecond,
+                maxCps: state.maxCps,
+                upgradeLevels: upgrades.map(u => ({ id: u.id, level: u.level })),
+                achievementsUnlocked: state.achievementsUnlocked,
+                specialEffects: specialEffects
+            };
+            
+            try {
+                // Using session storage as localstorage is not available
+                sessionStorage.setItem('spacebarClickerSave', JSON.stringify(saveData));
+                showNotification('Game Saved', 'Your progress has been saved!');
+            } catch (e) {
+                console.error('Failed to save game:', e);
+                showNotification('Save Failed', 'Could not save game data.');
+            }
+        }
+
+        // Load game
+        function loadGame() {
+            try {
+                const saveData = JSON.parse(sessionStorage.getItem('spacebarClickerSave'));
+                
+                if (saveData) {
+                    state.clicks = saveData.clicks || 0;
+                    state.clickValue = saveData.clickValue || 1;
+                    state.autoClicksPerSecond = saveData.autoClicksPerSecond || 0;
+                    state.maxCps = saveData.maxCps || 0;
+                    state.achievementsUnlocked = saveData.achievementsUnlocked || [];
+                    
+                    // Restore upgrade levels
+                    if (saveData.upgradeLevels) {
+                        saveData.upgradeLevels.forEach(savedUpgrade => {
+                            const upgrade = upgrades.find(u => u.id === savedUpgrade.id);
+                            if (upgrade) {
+                                upgrade.level = savedUpgrade.level;
+                            }
+                        });
+                    }
+                    
+                    // Restore special effects
+                    if (saveData.specialEffects) {
+                        specialEffects = saveData.specialEffects;
+                    }
+                }
+            } catch (e) {
+                console.error('Failed to load game:', e);
+            }
+        }
+
+        // Confirm reset
+        function confirmReset() {
+            if (confirm('Are you sure you want to reset your progress? This cannot be undone.')) {
+                resetGame();
+            }
+        }
+
+        // Reset game
+        function resetGame() {
+            // Reset state
+            state = {
+                clicks: 0,
+                clickValue: 1,
+                autoClicksPerSecond: 0,
+                cps: 0,
+                maxCps: 0,
+                lastClickTimestamps: [],
+                achievementsUnlocked: []
+            };
+            
+            // Reset upgrades
+            upgrades.forEach(upgrade => {
+                upgrade.level = 0;
+            });
+            
+            // Reset special effects
+            specialEffects = {
+                goldenClicks: false,
+                rapidFire: {
+                    active: false,
+                    clicks: 0,
+                    timeout: null
+                },
+                clickCombo: {
+                    active: false,
+                    combo: 0,
+                    timeout: null
+                }
+            };
+            
+            // Clear saved data
+            try {
+                sessionStorage.removeItem('spacebarClickerSave');
+            } catch (e) {
+                console.error('Failed to clear saved data:', e);
+            }
+            
+            // Update UI
+            renderUpgrades();
+            renderAchievements();
+            updateUI();
+            
+            showNotification('Game Reset', 'Your progress has been reset');
+        }
+
+        // Render leaderboard
+        function renderLeaderboard() {
+            const leaderboardTable = document.getElementById('leaderboard-table');
+            if (!leaderboardTable) return;
+            
+            leaderboardTable.innerHTML = '';
+            
+            // Sort leaderboard by clicks
+            leaderboard.sort((a, b) => b.totalClicks - a.totalClicks);
+            
+            leaderboard.forEach((entry, index) => {
+                const rank = index + 1;
+                const row = document.createElement('tr');
+                row.className = `leaderboard-entry ${rank <= 3 ? 'rank-' + rank : ''}`;
+                
+                row.innerHTML = `
+                    <td class="py-3 px-4 text-gray-900 dark:text-white">
+                        <div class="flex items-center">
+                            <span class="font-bold ${rank === 1 ? 'text-yellow-500' : rank === 2 ? 'text-gray-400' : rank === 3 ? 'text-amber-700' : ''}">#${rank}</span>
+                        </div>
+                    </td>
+                    <td class="py-3 px-4 text-gray-900 dark:text-white font-medium">${entry.name}</td>
+                    <td class="py-3 px-4 text-gray-900 dark:text-white">${entry.totalClicks.toLocaleString()}</td>
+                    <td class="py-3 px-4 text-gray-900 dark:text-white">${entry.maxCps}</td>
+                    <td class="py-3 px-4 text-gray-900 dark:text-white">${entry.achievements} / ${achievements.length}</td>
+                `;
+                
+                leaderboardTable.appendChild(row);
+            });
+        }
+
+        // Update leaderboard UI with current stats
+        function updateLeaderboardUI() {
+            const totalClicksElement = document.getElementById('leaderboard-total-clicks');
+            const maxCpsElement = document.getElementById('leaderboard-max-cps');
+            const achievementsElement = document.getElementById('leaderboard-achievements');
+            const upgradesElement = document.getElementById('leaderboard-upgrades');
+            
+            if (totalClicksElement) totalClicksElement.textContent = Math.floor(state.clicks).toLocaleString();
+            if (maxCpsElement) maxCpsElement.textContent = state.maxCps;
+            if (achievementsElement) achievementsElement.textContent = `${state.achievementsUnlocked.length} / ${achievements.length}`;
+            
+            // Count upgrades that have at least one level
+            const upgradesCount = upgrades.filter(u => u.level > 0).length;
+            if (upgradesElement) upgradesElement.textContent = `${upgradesCount} / ${upgrades.length}`;
+        }
+
+        // Submit score to leaderboard
+        function submitScore() {
+            const playerName = playerNameInput.value.trim();
+            
+            if (!playerName) {
+                alert('Please enter your name to submit your score.');
+                return;
+            }
+            
+            // Create new entry
+            const newEntry = {
+                name: playerName,
+                totalClicks: Math.floor(state.clicks),
+                maxCps: state.maxCps,
+                achievements: state.achievementsUnlocked.length
+            };
+            
+            // Add to leaderboard (replace if already exists)
+            const existingIndex = leaderboard.findIndex(entry => entry.name === playerName);
+            if (existingIndex >= 0) {
+                leaderboard[existingIndex] = newEntry;
+            } else {
+                leaderboard.push(newEntry);
+            }
+            
+            // Re-render leaderboard
+            renderLeaderboard();
+            
+            // Close modal
+            nameModal.classList.add('hidden');
+            
+            // Show notification
+            showNotification('Score Submitted!', 'Your score has been added to the leaderboard.');
+        }
+
+        // Initialize the game
+        window.addEventListener('DOMContentLoaded', initGame);
+    </script>
+</body>
+</html>
